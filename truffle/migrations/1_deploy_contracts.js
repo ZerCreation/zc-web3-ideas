@@ -1,5 +1,5 @@
-const Ideas = artifacts.require("Ideas");
+const Web3Ideas = artifacts.require("Web3Ideas");
 
 module.exports = function (deployer) {
-  deployer.deploy(Ideas);
+  deployer.deploy(Web3Ideas);
 };
