@@ -57,7 +57,7 @@ export default function IdeasList({ contractSigner, provider, address }: IdeasLi
             <Typography>[{idea.id.toString()}] {idea.title}</Typography>
           </AccordionSummary>
           <AccordionDetails>
-            <Typography>{idea.author}</Typography>
+            <Typography>{idea.author}: {idea.descriptionHash}</Typography>
           </AccordionDetails>
         </Accordion>)));
   }, [ideas]);
