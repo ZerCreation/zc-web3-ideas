@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import AccountInfo from "./components/AccountInfo";
 import IdeasList from "./components/IdeasList";
@@ -16,8 +16,6 @@ function App() {
   } as const;
 
   const contractAddress = '0x69fD8ECcA1e838E12e78e94c19bA8c91cd6A85D3';
-
-  const listActionsRef = useRef();
   
   type Web3Provider = ethers.providers.Web3Provider;
   const [provider, setProvider] = useState<Web3Provider>();
@@ -34,7 +32,8 @@ function App() {
     }
   }, [provider]);
 
-  function onConnectCallback(address: string) {
+  async function onConnectCallback(address: string) {
+    if (provider === undefined) return;
     setAddress(address);
   }
 
@@ -43,7 +42,7 @@ function App() {
       <AccountInfo provider={provider} connectCallback={onConnectCallback} />
       <div style={contentStyle}>
         Web3 Ideas for Zer Creation
-        <IdeasList contractSigner={contractSigner} />
+        <IdeasList contractSigner={contractSigner} provider={provider} address={address} />
         <ListActions contractSigner={contractSigner} />
       </div>
     </div>

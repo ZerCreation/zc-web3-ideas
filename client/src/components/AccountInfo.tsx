@@ -30,7 +30,7 @@ export default function AccountInfo({ provider, connectCallback }: AccountInfoPr
   return (
     <div style={accountStyle}>
       {!!address
-        ? <span>{address}<Button onClick={disconnect} variant="outlined">Disconnect</Button></span>
+        ? <span>[{address}] <Button onClick={disconnect} variant="outlined">Disconnect</Button></span>
         : <Button onClick={connect} variant="contained">Connect</Button>
       }
     </div>

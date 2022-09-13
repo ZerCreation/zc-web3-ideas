@@ -1,9 +1,10 @@
-import { ethers } from 'ethers';
+import { Accordion, AccordionSummary, Typography, AccordionDetails } from '@mui/material';
 import React, { useEffect, useState } from 'react'
 import { Idea } from '../models/props/contract/Idea';
 import { IdeasListProps } from '../models/props/IdeasListProps';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
-export default function IdeasList({ contractSigner }: IdeasListProps) {
+export default function IdeasList({ contractSigner, provider, address }: IdeasListProps) {
   const contentStyle = {
     display: 'flex',
     flexDirection: 'column',
@@ -14,34 +15,57 @@ export default function IdeasList({ contractSigner }: IdeasListProps) {
     margin: '20px 0px'
   };
 
-  const [ideasSigner, setIdeasSigner] = useState<ethers.Contract>();
   const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [ideasViewItems, setIdeasViewItems] = useState<JSX.Element[]>([]);
 
   useEffect(() => {
-    if (contractSigner === undefined) return;
-    setIdeasSigner(contractSigner);
+    async function initialize() {
+      const startBlockNumber = await provider?.getBlockNumber() ?? 0;
+      function isOldEvent(args: any[]) {
+        const event = args[args.length - 1];
+        if (event.blockNumber <= startBlockNumber) {
+          return true;
+        }
 
-    contractSigner.on('NewIdeaCreated', async function (...args) {
-      // if (isOldEvent(args)) return;
+        return false;
+      }
 
+      if (!contractSigner) return;
       setIdeas(await contractSigner.getAllIdeas());
-    });
-  }, [contractSigner]);
+
+      contractSigner.on('NewIdeaCreated', async function (...args) {
+        if (isOldEvent(args)) return;
+
+        console.log('new');
+        setIdeas(await contractSigner.getAllIdeas());
+      });
+    }
+
+    if (!address || !provider) return;
+    initialize();
+  }, [address, provider, contractSigner]);
+
+  useEffect(() => {
+    setIdeasViewItems(ideas.filter(idea => !!idea.title)
+      .map(idea => (
+        <Accordion key={idea.id}>
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            aria-controls="panel1a-content"
+            id={`panel-header-${idea.id}`}
+          >
+            <Typography>[{idea.id.toString()}] {idea.title}</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography>{idea.author}</Typography>
+          </AccordionDetails>
+        </Accordion>)));
+  }, [ideas]);
 
   return (
     <div style={contentStyle}>
       <div style={listStyle}>
-        List items
-        <table>
-          <tbody>
-            {ideas.filter(idea => !!idea.title).map(idea =>
-              <tr key={idea.id}>
-                <td>{idea.id.toString()} | </td>
-                <td>{idea.title} | </td>
-                <td>{idea.author}</td>
-              </tr>)}
-            </tbody>
-        </table>
+        {ideasViewItems.map(ideaViewItem => ideaViewItem)}
       </div>
     </div>
   )
