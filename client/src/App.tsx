@@ -16,7 +16,7 @@ function App() {
     flexDirection: 'column'
   } as const;
 
-  const contractAddress = '0x69fD8ECcA1e838E12e78e94c19bA8c91cd6A85D3';
+  const contractAddress = '0x8198E8D76F3d03A206E1503a8521159Cd3F3b00f';
 
   type Web3Provider = ethers.providers.Web3Provider;
   const [provider, setProvider] = useState<Web3Provider>();

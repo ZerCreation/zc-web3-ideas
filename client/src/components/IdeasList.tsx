@@ -1,8 +1,16 @@
-import { Accordion, AccordionSummary, Typography, AccordionDetails } from '@mui/material';
+import { Accordion, AccordionSummary, Typography, AccordionDetails, Button, Tooltip } from '@mui/material';
 import React, { useEffect, useState } from 'react'
 import { Idea } from '../models/props/contract/Idea';
 import { IdeasListProps } from '../models/props/IdeasListProps';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import CheckIcon from '@mui/icons-material/CheckBox';
+import CancelIcon from '@mui/icons-material/CloseRounded';
+import PendingIcon from '@mui/icons-material/Pending';
+import ArrowIcon from '@mui/icons-material/ArrowForwardIos';
+import { VoteResult } from '../models/props/contract/VoteResult';
+import { ethers } from 'ethers';
 
 export default function IdeasList({ contractSigner, provider, address }: IdeasListProps) {
   const contentStyle = {
@@ -36,9 +44,14 @@ export default function IdeasList({ contractSigner, provider, address }: IdeasLi
       contractSigner.on('NewIdeaCreated', async function (...args) {
         if (isOldEvent(args)) return;
 
-        console.log('new');
         setIdeas(await contractSigner.getAllIdeas());
       });
+
+      contractSigner.on('UserVotePerformed', async function (...args) {
+        if (isOldEvent(args)) return;
+
+        setIdeas(await contractSigner.getAllIdeas());
+      });      
     }
 
     if (!address || !provider) return;
@@ -48,19 +61,96 @@ export default function IdeasList({ contractSigner, provider, address }: IdeasLi
   useEffect(() => {
     setIdeasViewItems(ideas.filter(idea => !!idea.title)
       .map(idea => (
-        <Accordion key={idea.id}>
+        <Accordion key={idea.id} style={{ padding: '0px 5px' }}>
           <AccordionSummary
             expandIcon={<ExpandMoreIcon />}
             aria-controls="panel1a-content"
             id={`panel-header-${idea.id}`}
           >
-            <Typography>[{idea.id.toString()}] {idea.title}</Typography>
+            <Typography style={{ minWidth: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>
+                  <span style={{ marginRight: 20 }}>
+                    {showUserVoteResult(idea.userVote, idea.canVoteForIdea)}
+                  </span>
+                  [{idea.id.toString()}] {idea.title}
+                </span>
+                <div>
+                  <span style={{ lineHeight: 2.5 }}>({showCutAddress(idea.author)})</span>
+                </div>
+              </div>
+            </Typography>
           </AccordionSummary>
           <AccordionDetails>
-            <Typography>{idea.author}: {idea.descriptionHash}</Typography>
+            <div style={{ display: 'flex', justifyContent: 'space-between', margin: '0px 20px', lineHeight: 2.5 }}>
+              <div style={{ textAlign: 'left' }}>
+                <Typography>Date: {formatDate(idea.createdOn)}</Typography>
+                <Typography>Author: {idea.author}</Typography>
+                <Typography>
+                  {idea.approvedCount.toString()}<CheckIcon style={{fontSize: 20, marginBottom: -5}} />
+                  &nbsp;/&nbsp;
+                  {idea.rejectedCount.toString()}<CancelIcon style={{fontSize: 20, marginBottom: -5}} />
+                </Typography>
+                <Typography>Description: {idea.descriptionHash}</Typography>
+                <Typography>Comments:</Typography>
+              </div>
+              <div>
+                <Button disabled={!idea.canChange} variant='outlined'><EditIcon /></Button>
+                <Button disabled={!idea.canChange} variant='outlined' color='error' style={{ marginLeft: 10 }}><DeleteIcon /></Button>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 30 }}>
+              <Button disabled={!idea.canVoteForIdea} variant='outlined' color='error' onClick={() => rejectIdea(idea.id)}>Vote against</Button>
+              <Button disabled={!idea.canVoteForIdea} variant='outlined' color='success' onClick={() => approveIdea(idea.id)}>Vote for</Button>
+            </div>
           </AccordionDetails>
         </Accordion>)));
-  }, [ideas]);
+
+    function formatDate(date: number): React.ReactNode {
+      return new Date(+ethers.utils.formatUnits(date, 0) * 1000).toLocaleString();
+    }
+
+    function showUserVoteResult(userVoteResult: VoteResult, canUserVote: boolean) {
+      if (!canUserVote) {
+        return <Tooltip title="Your idea" placement="top-start"><ArrowIcon /></Tooltip>;
+      }
+
+      switch(userVoteResult) {
+        case VoteResult.Pending:
+          return <Tooltip title="Idea vote Pending for you" placement="top-start"><PendingIcon /></Tooltip>;
+        case VoteResult.Approved:
+          return <Tooltip title="Idea Approved by you" placement="top-start"><CheckIcon color='success' /></Tooltip>;
+        case VoteResult.Rejected:
+            return <Tooltip title="Idea Rejected by you" placement="top-start"><CancelIcon color='error' /></Tooltip>;
+        default:
+          return null;
+      }
+    }
+
+    async function approveIdea(ideaId: number) {
+      await voteForIdea(ideaId, 1);
+    }
+
+    async function rejectIdea(ideaId: number) {
+      await voteForIdea(ideaId, 2);
+    }
+
+    async function voteForIdea(ideaId: number, voteResult: number) {
+      sendTransaction(async () => await contractSigner?.voteForIdea(ideaId, voteResult));
+    }
+
+    async function sendTransaction(func: (() => void)) {
+      try {
+        await func();
+      } catch (error: any) {
+        alert(!!error.data ? error.data.message : error.message);
+      }
+    }
+
+    function showCutAddress(address: string): React.ReactNode {
+      return address.slice(0, 4) + '...' + address.slice(38);
+    }
+  }, [ideas, contractSigner]);
 
   return (
     <div style={contentStyle}>
