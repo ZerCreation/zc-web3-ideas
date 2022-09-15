@@ -47,6 +47,7 @@ contract Web3Ideas is AccessControl {
     event NewIdeaCreated(uint id);
     event IdeaTitleChanged(uint id, string newTitle);
     event IdeaDescriptionChanged(uint id, string newDescriptionHash);
+    event IdeaDeleted(uint id);
     event UserVotePerformed(uint id, address userAddress, VoteResult userVote, uint voteDate);
 
     modifier onlyCanChangeIdea(uint ideaId) {
@@ -84,6 +85,19 @@ contract Web3Ideas is AccessControl {
       idea.descriptionHash = newDescriptionHash;
 
       emit IdeaDescriptionChanged(ideaId, newDescriptionHash);
+    }
+
+    function deleteIdea(uint ideaId) external onlyCanChangeIdea(ideaId) {        
+      delete ideas[ideaId];
+
+      for (uint voteId = 0; voteId < votingsCount; voteId++) {
+        VotedIdea memory votedIdea = votes[voteId];
+        if (votedIdea.ideaId == ideaId) {
+          delete votes[voteId];
+        }
+      }
+
+      emit IdeaDeleted(ideaId);
     }
 
     function canChangeIdea(uint ideaId) private view returns (bool) {
@@ -135,7 +149,14 @@ contract Web3Ideas is AccessControl {
           }
         }
 
-        allIdeas[ideaId] = IdeaDTO(idea.id, idea.title, idea.descriptionHash, idea.author, approvedCount, rejectedCount, userVoted,
+        allIdeas[ideaId] = IdeaDTO(
+          idea.id,
+          idea.title,
+          idea.descriptionHash,
+          idea.author,
+          approvedCount,
+          rejectedCount,
+          userVoted,
           canChangeIdea(idea.id),
           canVoteForIdea(idea.id),
           idea.createdOn);

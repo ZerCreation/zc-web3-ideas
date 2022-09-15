@@ -4,7 +4,7 @@ import { Idea } from '../models/contract/Idea';
 import { IdeasListProps } from '../models/props/IdeasListProps';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
+// import EditIcon from '@mui/icons-material/Edit';
 import CheckIcon from '@mui/icons-material/CheckBox';
 import CancelIcon from '@mui/icons-material/CloseRounded';
 import PendingIcon from '@mui/icons-material/Pending';
@@ -12,7 +12,7 @@ import ArrowIcon from '@mui/icons-material/ArrowForwardIos';
 import { VoteResult } from '../models/contract/VoteResult';
 import { ethers } from 'ethers';
 
-export default function IdeasList({ contractSigner, provider, address }: IdeasListProps) {
+export default function IdeasList({ contractSigner, provider, address, ipfsClient }: IdeasListProps) {
   const contentStyle = {
     display: 'flex',
     flexDirection: 'column',
@@ -39,28 +39,56 @@ export default function IdeasList({ contractSigner, provider, address }: IdeasLi
       }
 
       if (!contractSigner) return;
-      setIdeas(await contractSigner.getAllIdeas());
+      await fetchAllIdeas(contractSigner);
 
       contractSigner.on('NewIdeaCreated', async function (...args) {
         if (isOldEvent(args)) return;
 
-        setIdeas(await contractSigner.getAllIdeas());
+        await fetchAllIdeas(contractSigner);
+      });
+
+      contractSigner.on('IdeaDeleted', async function (...args) {
+        if (isOldEvent(args)) return;
+
+        await fetchAllIdeas(contractSigner);
       });
 
       contractSigner.on('UserVotePerformed', async function (...args) {
         if (isOldEvent(args)) return;
 
-        setIdeas(await contractSigner.getAllIdeas());
-      });      
+        await fetchAllIdeas(contractSigner);
+      });
+
+      async function fetchAllIdeas(contractSigner: ethers.Contract) {
+        const allIdeas = await contractSigner.getAllIdeas();
+        const allIdeasDecoded: Idea[] = [];
+        for await (const idea of allIdeas.filter((idea: Idea) => !!idea.title)) {
+          console.log(idea.descriptionHash);
+          allIdeasDecoded.push({
+            ...idea,
+            description: await decodeIpfsText(idea.descriptionHash),
+          });
+        }
+        setIdeas(allIdeasDecoded);
+      }
+
+      async function decodeIpfsText(hash: string) {
+        if (ipfsClient === null) return null;
+  
+        const catResults = ipfsClient.cat(hash);
+        for await (const item of catResults) {
+          return String.fromCharCode.apply(null, item);
+        }
+      }
     }
 
     if (!address || !provider) return;
     initialize();
-  }, [address, provider, contractSigner]);
+  }, [address, provider, contractSigner, ipfsClient]);
 
   useEffect(() => {
-    setIdeasViewItems(ideas.filter(idea => !!idea.title)
-      .map(idea => (
+    setIdeasViewItems(
+      ideas.map(idea => (
         <Accordion key={idea.id} style={{ padding: '0px 5px' }}>
           <AccordionSummary
             expandIcon={<ExpandMoreIcon />}
@@ -87,16 +115,24 @@ export default function IdeasList({ contractSigner, provider, address }: IdeasLi
                 <Typography>Date: {formatDate(idea.createdOn)}</Typography>
                 <Typography>Author: {idea.author}</Typography>
                 <Typography>
-                  {idea.approvedCount.toString()}<CheckIcon style={{fontSize: 20, marginBottom: -5}} />
+                  {idea.approvedCount.toString()}<CheckIcon style={{ fontSize: 20, marginBottom: -5 }} />
                   &nbsp;/&nbsp;
-                  {idea.rejectedCount.toString()}<CancelIcon style={{fontSize: 20, marginBottom: -5}} />
+                  {idea.rejectedCount.toString()}<CancelIcon style={{ fontSize: 20, marginBottom: -5 }} />
                 </Typography>
-                <Typography>Description: {idea.descriptionHash}</Typography>
+                <Typography>Description: {idea.description}</Typography>
                 <Typography>Comments:</Typography>
               </div>
               <div>
-                <Button disabled={!idea.canChange} variant='outlined'><EditIcon /></Button>
-                <Button disabled={!idea.canChange} variant='outlined' color='error' style={{ marginLeft: 10 }}><DeleteIcon /></Button>
+                {/* <Button disabled={!idea.canChange} variant='outlined'><EditIcon /></Button> */}
+                <Button 
+                  onClick={() => deleteIdea(idea.id, idea.descriptionHash)} 
+                  disabled={!idea.canChange} 
+                  variant='outlined' 
+                  color='error' 
+                  style={{ marginLeft: 10 }}
+                >
+                  <DeleteIcon />
+                </Button>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 30 }}>
@@ -115,13 +151,13 @@ export default function IdeasList({ contractSigner, provider, address }: IdeasLi
         return <Tooltip title="Your idea" placement="top-start"><ArrowIcon /></Tooltip>;
       }
 
-      switch(userVoteResult) {
+      switch (userVoteResult) {
         case VoteResult.Pending:
           return <Tooltip title="Idea vote Pending for you" placement="top-start"><PendingIcon /></Tooltip>;
         case VoteResult.Approved:
           return <Tooltip title="Idea Approved by you" placement="top-start"><CheckIcon color='success' /></Tooltip>;
         case VoteResult.Rejected:
-            return <Tooltip title="Idea Rejected by you" placement="top-start"><CancelIcon color='error' /></Tooltip>;
+          return <Tooltip title="Idea Rejected by you" placement="top-start"><CancelIcon color='error' /></Tooltip>;
         default:
           return null;
       }
@@ -137,6 +173,11 @@ export default function IdeasList({ contractSigner, provider, address }: IdeasLi
 
     async function voteForIdea(ideaId: number, voteResult: number) {
       sendTransaction(async () => await contractSigner?.voteForIdea(ideaId, voteResult));
+    }
+
+    async function deleteIdea(ideaId: number, descriptionHash: string) {
+      await ipfsClient.pin.rm(descriptionHash);
+      sendTransaction(async () => await contractSigner?.deleteIdea(ideaId));
     }
 
     async function sendTransaction(func: (() => void)) {

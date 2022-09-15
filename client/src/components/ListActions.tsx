@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 import { useEffect, useState } from 'react';
 import { ListActionsProps } from '../models/props/ListActionsProps';
 
-export default function ListActions({ contractSigner, address }: ListActionsProps) {
+export default function ListActions({ contractSigner, address, ipfsClient }: ListActionsProps) {
   const addNewButtonStyle = {
     width: 200,
     float: 'right'
@@ -14,7 +14,7 @@ export default function ListActions({ contractSigner, address }: ListActionsProp
     left: '50%',
     transform: 'translate(-50%, -50%)',
     width: 800,
-    height: 800,
+    height: 620,
     bgcolor: 'black',
     border: '1px solid white',
     boxShadow: 24,
@@ -53,8 +53,13 @@ export default function ListActions({ contractSigner, address }: ListActionsProp
   };
 
   async function submitIdea(e: React.SyntheticEvent) {
+    if (!formData.title || !formData.description) {
+      return;
+    }
+
     e.preventDefault();
-    await ideasSigner?.createIdea(formData.title, formData.description);
+    const descriptionFile = await ipfsClient?.add(formData.description);
+    await ideasSigner?.createIdea(formData.title, descriptionFile?.path);
     setModalVisibility(false);
     setFormData({});
   }
