@@ -1,6 +1,6 @@
 import { Accordion, AccordionSummary, Typography, AccordionDetails, Button, Tooltip } from '@mui/material';
 import React, { useEffect, useState } from 'react'
-import { Idea } from '../models/props/contract/Idea';
+import { Idea } from '../models/contract/Idea';
 import { IdeasListProps } from '../models/props/IdeasListProps';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -9,7 +9,7 @@ import CheckIcon from '@mui/icons-material/CheckBox';
 import CancelIcon from '@mui/icons-material/CloseRounded';
 import PendingIcon from '@mui/icons-material/Pending';
 import ArrowIcon from '@mui/icons-material/ArrowForwardIos';
-import { VoteResult } from '../models/props/contract/VoteResult';
+import { VoteResult } from '../models/contract/VoteResult';
 import { ethers } from 'ethers';
 
 export default function IdeasList({ contractSigner, provider, address }: IdeasListProps) {

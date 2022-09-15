@@ -6,6 +6,7 @@ import AccountInfo from "./components/AccountInfo";
 import IdeasList from "./components/IdeasList";
 import ListActions from "./components/ListActions";
 import WEB3IDEAS from "./contracts/Web3Ideas.json";
+import { ContractNetwork } from "./models/utils/ContractNetworks";
 
 declare let window: any;
 
@@ -15,8 +16,6 @@ function App() {
     display: 'flex',
     flexDirection: 'column'
   } as const;
-
-  const contractAddress = '0x8198E8D76F3d03A206E1503a8521159Cd3F3b00f';
 
   type Web3Provider = ethers.providers.Web3Provider;
   const [provider, setProvider] = useState<Web3Provider>();
@@ -33,15 +32,15 @@ function App() {
     setProvider(new ethers.providers.Web3Provider(window.ethereum));
   }, []);
 
-  useEffect(() => {
-    if (provider !== undefined) {
-      setContractSigner(new ethers.Contract(contractAddress, WEB3IDEAS.abi, provider.getSigner()));
+  async function onConnectCallback(address: string, contractNetwork: ContractNetwork | undefined) {
+    if (address === '') {
+      window.location.reload();
+      return;
     }
-  }, [provider]);
-
-  async function onConnectCallback(address: string) {
-    if (provider === undefined) return;
+    if (provider === undefined || contractNetwork === undefined) return;
+    
     setAddress(address);
+    setContractSigner(new ethers.Contract(contractNetwork.address, WEB3IDEAS.abi, provider.getSigner()));
   }
 
   return (

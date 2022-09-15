@@ -56,6 +56,7 @@ export default function ListActions({ contractSigner, address }: ListActionsProp
     e.preventDefault();
     await ideasSigner?.createIdea(formData.title, formData.description);
     setModalVisibility(false);
+    setFormData({});
   }
 
   return (

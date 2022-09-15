@@ -22,11 +22,11 @@ require("ts-node").register({
   files: true,
 });
 
-// require('dotenv').config();
-// const mnemonic = process.env["MNEMONIC"];
-// const infuraProjectId = process.env["INFURA_PROJECT_ID"];
+require('dotenv').config();
+const mnemonicPhrase = process.env["MNEMONIC"];
+const infuraProjectId = process.env["INFURA_PROJECT_ID"];
 
-// const HDWalletProvider = require('@truffle/hdwallet-provider');
+const HDWalletProvider = require('@truffle/hdwallet-provider');
 
 module.exports = {
   /**
@@ -63,10 +63,22 @@ module.exports = {
     //   websocket: true         // Enable EventEmitter interface for web3 (default: false)
     // },
     //
+    ropsten: {
+      provider: () =>
+        new HDWalletProvider({
+          mnemonic: mnemonicPhrase,
+          providerOrUrl: `https://ropsten.infura.io/v3/${infuraProjectId}`,
+        }),
+      network_id: '3',
+      gas: 5500000,        // Ropsten has a lower block limit than mainnet
+      confirmations: 2,    // # of confs to wait between deployments. (default: 0)
+      timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
+      skipDryRun: true
+    }
     // Useful for deploying to a public network.
     // Note: It's important to wrap the provider as a function to ensure truffle uses a new provider every time.
     // goerli: {
-    //   provider: () => new HDWalletProvider(mnemonic, `https://goerli.infura.io/v3/${infuraProjectId}`),
+    //   provider: () => new HDWalletProvider(mnemonicPhrase, `https://goerli.infura.io/v3/${infuraProjectId}`),
     //   network_id: 5,       // Goerli's network id
     //   chain_id: 5,         // Goerli's chain id
     //   gas: 5500000,        // Gas limit used for deploys.
