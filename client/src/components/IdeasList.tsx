@@ -1,16 +1,18 @@
-import { Accordion, AccordionSummary, Typography, AccordionDetails, Button, Tooltip } from '@mui/material';
+import { Accordion, AccordionSummary, Typography, AccordionDetails, Button, Tooltip, Modal } from '@mui/material';
 import React, { useEffect, useState } from 'react'
 import { Idea } from '../models/contract/Idea';
 import { IdeasListProps } from '../models/props/IdeasListProps';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 // import EditIcon from '@mui/icons-material/Edit';
+import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/CheckBox';
 import CancelIcon from '@mui/icons-material/CloseRounded';
 import PendingIcon from '@mui/icons-material/Pending';
 import ArrowIcon from '@mui/icons-material/ArrowForwardIos';
 import { VoteResult } from '../models/contract/VoteResult';
 import { ethers } from 'ethers';
+import NewCommentModal from './NewCommentModal';
 
 export default function IdeasList({ contractSigner, provider, address, ipfsClient }: IdeasListProps) {
   const contentStyle = {
@@ -25,6 +27,8 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
 
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [ideasViewItems, setIdeasViewItems] = useState<JSX.Element[]>([]);
+  const [modalVisibility, setModalVisibility] = useState(false);
+  const [ideaUnderComment, setIdeaUnderComment] = useState<Idea>();
 
   useEffect(() => {
     async function initialize() {
@@ -73,11 +77,11 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
       }
 
       async function decodeIpfsText(hash: string) {
-        if (ipfsClient === null) return null;
+        if (ipfsClient == null) return null;
   
         const catResults = ipfsClient.cat(hash);
         for await (const item of catResults) {
-          return String.fromCharCode.apply(null, item);
+          return String.fromCharCode.apply(null, item as unknown as number[]);
         }
       }
     }
@@ -120,7 +124,9 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
                   {idea.rejectedCount.toString()}<CancelIcon style={{ fontSize: 20, marginBottom: -5 }} />
                 </Typography>
                 <Typography>Description: {idea.description}</Typography>
-                <Typography>Comments:</Typography>
+                <Typography>Comments:
+                  <Button variant='outlined' onClick={() => showCommentModal(idea)}><AddIcon /></Button>
+                </Typography>
               </div>
               <div>
                 {/* <Button disabled={!idea.canChange} variant='outlined'><EditIcon /></Button> */}
@@ -176,6 +182,8 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
     }
 
     async function deleteIdea(ideaId: number, descriptionHash: string) {
+      if (ipfsClient == null) return null;
+
       await ipfsClient.pin.rm(descriptionHash);
       sendTransaction(async () => await contractSigner?.deleteIdea(ideaId));
     }
@@ -193,11 +201,34 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
     }
   }, [ideas, contractSigner]);
 
+  function showCommentModal(idea: Idea) {
+    setIdeaUnderComment(idea);
+    setModalVisibility(true);
+  }
+
+  function onAddCommentCallback(description: string) {
+    alert(description);
+    setModalVisibility(false);
+
+    // const descriptionFile = await ipfsClient?.add(formData.description);
+    // await contractSigner?.addComment(ideaId, descriptionFile?.path);
+    // setModalVisibility(false);
+  }
+
   return (
     <div style={contentStyle}>
       <div style={listStyle}>
         {ideasViewItems.map(ideaViewItem => ideaViewItem)}
       </div>
+
+      <Modal
+        open={modalVisibility}
+        onClose={() => setModalVisibility(false)}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+      >
+        <NewCommentModal ideaTitle={ideaUnderComment?.title} addCommentCallback={onAddCommentCallback} />
+      </Modal>
     </div>
   )
 }

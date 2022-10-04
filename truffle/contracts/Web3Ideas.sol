@@ -26,6 +26,14 @@ contract Web3Ideas is AccessControl {
       Rejected
     }
 
+    struct IdeaComment {
+      uint id;
+      uint ideaId;
+      string descriptionHash;
+      address author;
+      uint createdOn;
+    }
+
     struct IdeaDTO {
       uint id;
       string title;
@@ -43,12 +51,16 @@ contract Web3Ideas is AccessControl {
     uint private ideasCount = 0;
     mapping(uint => VotedIdea) private votes;
     uint private votingsCount = 0;
+    mapping(uint => IdeaComment) private comments;
+    uint private ideaCommentsCount = 0;
 
     event NewIdeaCreated(uint id);
     event IdeaTitleChanged(uint id, string newTitle);
     event IdeaDescriptionChanged(uint id, string newDescriptionHash);
     event IdeaDeleted(uint id);
     event UserVotePerformed(uint id, address userAddress, VoteResult userVote, uint voteDate);
+    event CommentAdded(uint id, string descriptionHash);
+    event CommentDeleted(uint id);
 
     modifier onlyCanChangeIdea(uint ideaId) {
       require(canChangeIdea(ideaId), "Not enough permission to delete this idea");
@@ -126,6 +138,14 @@ contract Web3Ideas is AccessControl {
 
     function canVoteForIdea(uint ideaId) private view returns (bool) {
       return msg.sender != ideas[ideaId].author;
+    }
+
+    function addComment(uint ideaId, string calldata descriptionHash) external {
+      IdeaComment memory comment = IdeaComment(ideaCommentsCount, ideaId, descriptionHash, msg.sender, block.timestamp);
+      comments[ideaCommentsCount] = comment;
+      ++ideaCommentsCount;
+
+      emit CommentAdded(ideaId, descriptionHash);
     }
 
     function getAllIdeas() external view returns(IdeaDTO[] memory) {

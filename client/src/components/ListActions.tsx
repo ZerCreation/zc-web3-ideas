@@ -37,7 +37,7 @@ export default function ListActions({ contractSigner, address, ipfsClient }: Lis
   interface FormValues {
     title?: string;
     description?: string;
-}
+  }
 
   const [ideasSigner, setIdeasSigner] = useState<ethers.Contract>();
   const [modalVisibility, setModalVisibility] = useState(false);
