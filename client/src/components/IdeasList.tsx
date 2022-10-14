@@ -63,14 +63,29 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
         await fetchAllIdeas(contractSigner);
       });
 
+      contractSigner.on("CommentAdded", async function (...args) {
+        if (isOldEvent(args)) return;
+
+        await fetchAllIdeas(contractSigner);
+      });
+
       async function fetchAllIdeas(contractSigner: ethers.Contract) {
         const allIdeas = await contractSigner.getAllIdeas();
         const allIdeasDecoded: Idea[] = [];
         for await (const idea of allIdeas.filter((idea: Idea) => !!idea.title)) {
-          console.log(idea.descriptionHash);
+          const ideaComments = [];
+          for await (const comment of idea.comments) {
+            if (!comment.descriptionHash) continue;
+            ideaComments.push({
+              ...comment,
+              description: await decodeIpfsText(comment.descriptionHash)
+            });
+          }
+
           allIdeasDecoded.push({
             ...idea,
             description: await decodeIpfsText(idea.descriptionHash),
+            comments: ideaComments
           });
         }
         setIdeas(allIdeasDecoded);
@@ -124,17 +139,35 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
                   {idea.rejectedCount.toString()}<CancelIcon style={{ fontSize: 20, marginBottom: -5 }} />
                 </Typography>
                 <Typography>Description: {idea.description}</Typography>
-                <Typography>Comments:
-                  <Button variant='outlined' onClick={() => showCommentModal(idea)}><AddIcon /></Button>
+                <Typography>
+                  Comments:
+                  {!!idea.comments
+                    ? <ul>{idea.comments.filter(comment => !!comment.descriptionHash).map((comment, idx) =>
+                      <li key={idx}>
+                        {comment.description}
+                        | {comment.author}
+                        | {new Date(+ethers.utils.formatUnits(comment.createdOn, 0) * 1000).toLocaleString()}
+                        <Button
+                          onClick={() => deleteComment(comment.id)}
+                          variant='outlined'
+                          color='error'
+                        >
+                          <DeleteIcon />
+                        </Button>
+                      </li>
+                    )}</ul>
+                    : null
+                  }
                 </Typography>
               </div>
               <div>
                 {/* <Button disabled={!idea.canChange} variant='outlined'><EditIcon /></Button> */}
-                <Button 
-                  onClick={() => deleteIdea(idea.id, idea.descriptionHash)} 
-                  disabled={!idea.canChange} 
-                  variant='outlined' 
-                  color='error' 
+                <Button variant='outlined' onClick={() => showCommentModal(idea)}><AddIcon /> Add comment</Button>
+                <Button
+                  onClick={() => deleteIdea(idea.id, idea.descriptionHash)}
+                  disabled={!idea.canChange}
+                  variant='outlined'
+                  color='error'
                   style={{ marginLeft: 10 }}
                 >
                   <DeleteIcon />
@@ -199,6 +232,10 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
     function showCutAddress(address: string): React.ReactNode {
       return address.slice(0, 4) + '...' + address.slice(38);
     }
+
+    async function deleteComment(commentId: number) {
+      // sendTransaction(async () => await contractSigner?.deleteComment(commentId));
+    }
   }, [ideas, contractSigner]);
 
   function showCommentModal(idea: Idea) {
@@ -206,13 +243,13 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
     setModalVisibility(true);
   }
 
-  function onAddCommentCallback(description: string) {
-    alert(description);
+  async function onAddCommentCallback(description: string) {
+    if (!ipfsClient) return;
     setModalVisibility(false);
 
-    // const descriptionFile = await ipfsClient?.add(formData.description);
-    // await contractSigner?.addComment(ideaId, descriptionFile?.path);
-    // setModalVisibility(false);
+    const descriptionFile = await ipfsClient.add(description);
+    await contractSigner?.addComment(ideaUnderComment?.id, descriptionFile?.path);
+    setModalVisibility(false);
   }
 
   return (

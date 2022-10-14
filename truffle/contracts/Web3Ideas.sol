@@ -45,6 +45,7 @@ contract Web3Ideas is AccessControl {
       bool canChange;
       bool canVoteForIdea;
       uint createdOn;
+      IdeaComment[] comments;
     }
 
     mapping(uint => Idea) private ideas;
@@ -52,7 +53,7 @@ contract Web3Ideas is AccessControl {
     mapping(uint => VotedIdea) private votes;
     uint private votingsCount = 0;
     mapping(uint => IdeaComment) private comments;
-    uint private ideaCommentsCount = 0;
+    uint private commentsCount = 0;
 
     event NewIdeaCreated(uint id);
     event IdeaTitleChanged(uint id, string newTitle);
@@ -141,9 +142,9 @@ contract Web3Ideas is AccessControl {
     }
 
     function addComment(uint ideaId, string calldata descriptionHash) external {
-      IdeaComment memory comment = IdeaComment(ideaCommentsCount, ideaId, descriptionHash, msg.sender, block.timestamp);
-      comments[ideaCommentsCount] = comment;
-      ++ideaCommentsCount;
+      IdeaComment memory comment = IdeaComment(commentsCount, ideaId, descriptionHash, msg.sender, block.timestamp);
+      comments[commentsCount] = comment;
+      ++commentsCount;
 
       emit CommentAdded(ideaId, descriptionHash);
     }
@@ -169,6 +170,17 @@ contract Web3Ideas is AccessControl {
           }
         }
 
+        IdeaComment[] memory ideaComments = new IdeaComment[](commentsCount);
+        uint ideaCommentId = 0;
+        for (uint commentId = 0; commentId < commentsCount; commentId++) {
+          IdeaComment memory comment = comments[commentId];
+          if (comment.ideaId != idea.id) {
+              continue;
+          }
+          ideaComments[ideaCommentId] = comment;
+          ++ideaCommentId;
+        }
+
         allIdeas[ideaId] = IdeaDTO(
           idea.id,
           idea.title,
@@ -179,7 +191,8 @@ contract Web3Ideas is AccessControl {
           userVoted,
           canChangeIdea(idea.id),
           canVoteForIdea(idea.id),
-          idea.createdOn);
+          idea.createdOn,
+          ideaComments);
       }
 
       return allIdeas;

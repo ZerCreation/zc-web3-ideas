@@ -1,3 +1,4 @@
+import { IdeaComment } from "./IdeaComment";
 import { VoteResult } from "./VoteResult";
 
 export interface Idea {
@@ -12,4 +13,5 @@ export interface Idea {
   canChange: boolean;
   canVoteForIdea: boolean;
   createdOn: number;
+  comments: IdeaComment[];
 }
