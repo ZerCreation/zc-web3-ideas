@@ -5,4 +5,5 @@ export interface IdeaComment {
   description: string;
   author: string;
   createdOn: number;
+  canDelete: boolean;
 }

@@ -7,8 +7,8 @@ contract("Web3Ideas", (accounts) => {
     web3IdeasInstance = await Web3Ideas.new();
   });
 
-  describe("Get ideas", () => {
-    it("should get correct number of ideas", async () => {
+  describe("Create ideas", () => {
+    it("should create 2 ideas", async () => {
       // When
       await web3IdeasInstance.createIdea('title 1', 'descHash 1');
       await web3IdeasInstance.createIdea('title 2', 'descHash 2');
@@ -18,7 +18,7 @@ contract("Web3Ideas", (accounts) => {
       assert.equal(ideas.length, 2, "Wrong ideas number");
     });
     
-    it("should get correct idea data", async () => {
+    it("should create idea with correct data", async () => {
       // When
       await web3IdeasInstance.createIdea('title', 'descHash');
       
@@ -29,81 +29,167 @@ contract("Web3Ideas", (accounts) => {
     });
   });
 
-  describe("Edit idea", () => {
-    it("should edit idea title by idea creator", async () => {
+  describe("Delete idea", () => {
+    it("should delete idea", async () => {
       // Given
-      await web3IdeasInstance.createIdea('original title', 'descHash', {from: accounts[1]});
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1', {from: accounts[1]});
 
       // When
-      await web3IdeasInstance.editIdeaTitle(0, 'new title', {from: accounts[1]});
+      await web3IdeasInstance.deleteIdea(0, {from: accounts[1]});
 
       // Then
       const ideas = await web3IdeasInstance.getAllIdeas.call();
-      assert.equal(ideas[0].title, 'new title', "Wrong title");
+      assert.equal(ideas.length, 0, "Wrong ideas number");
     });
 
-    it("should edit idea title by admin", async () => {
+    it("should not delete other user idea", async () => {
       // Given
-      await web3IdeasInstance.createIdea('original title', 'descHash', {from: accounts[1]});
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1', {from: accounts[1]});
 
-      // When
-      await web3IdeasInstance.editIdeaTitle(0, 'new title', {from: accounts[0]});
-
-      // Then
-      const ideas = await web3IdeasInstance.getAllIdeas.call();
-      assert.equal(ideas[0].title, 'new title', "Wrong title");
-    });
-
-    it("should not edit idea title by not owner", async () => {
-      // Given
-      await web3IdeasInstance.createIdea('original title', 'descHash', {from: accounts[1]});
-
-      // When
       try {
-        await web3IdeasInstance.editIdeaTitle(0, 'new title', {from: accounts[2]});
-        assert.equal(true, false, "Title changed by not owner");
+        // When
+        await web3IdeasInstance.deleteIdea(0, {from: accounts[2]});
+        assert.equal(true, false, "Failed");
+      } catch(error) {
+        // Then
+        assert.equal(true, true, "Ok");
+      }
+
+      // Then
+      const ideas = await web3IdeasInstance.getAllIdeas.call();
+      assert.equal(ideas.length, 1, "Wrong ideas number");
+    });
+
+    it("user admin should delete other user idea", async () => {
+      // Given
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1', {from: accounts[1]});
+
+      // When
+      await web3IdeasInstance.deleteIdea(0, {from: accounts[0]});
+
+      // Then
+      const ideas = await web3IdeasInstance.getAllIdeas.call();
+      assert.equal(ideas.length, 0, "Wrong ideas number");
+    });
+  });
+
+  describe("Add comment", () => {
+    it("should add comment", async () => {
+      // Given
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1');
+      
+      // When
+      await web3IdeasInstance.addComment(0, 'descHash comment 1');
+
+      // Then
+      const ideas = await web3IdeasInstance.getAllIdeas.call();
+      assert.equal(ideas[0].comments[0].descriptionHash, 'descHash comment 1', "Wrong comment's description");
+    });
+  });
+
+  describe("Delete comment", () => {
+    it("should delete comment", async () => {
+      // Given
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1');
+      await web3IdeasInstance.addComment(0, 'descHash comment 1', {from: accounts[1]});
+      
+      // When
+      await web3IdeasInstance.deleteComment(0, {from: accounts[1]});
+
+      // Then
+      const ideas = await web3IdeasInstance.getAllIdeas.call();
+      assert.equal(ideas[0].comments.length, 0, "Wrong comments number");
+    });
+
+    it("user admin should delete other user comment", async () => {
+      // Given
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1');
+      await web3IdeasInstance.addComment(0, 'descHash comment 1', {from: accounts[1]});
+      
+      // When
+      await web3IdeasInstance.deleteComment(0, {from: accounts[0]});
+
+      // Then
+      const ideas = await web3IdeasInstance.getAllIdeas.call();
+      assert.equal(ideas[0].comments.length, 0, "Wrong comments number");
+    });
+  });
+
+  describe("Voting", () => {
+    it("should vote for other user idea", async () => {
+      // Given
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1', {from: accounts[1]});
+      
+      // When
+      await web3IdeasInstance.voteForIdea(0, 1, {from: accounts[2]});
+
+      // Then
+      const ideas = await web3IdeasInstance.getAllIdeas.call();
+      assert.equal(ideas[0].approvedCount, 1, "Wrong vote result");
+    });
+
+    it("should vote against other user idea", async () => {
+      // Given
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1', {from: accounts[1]});
+      
+      // When
+      await web3IdeasInstance.voteForIdea(0, 2, {from: accounts[2]});
+
+      // Then
+      const ideas = await web3IdeasInstance.getAllIdeas.call();
+      assert.equal(ideas[0].rejectedCount, 1, "Wrong vote result");
+    });
+
+    it("should not allow to vote for user idea even by admin", async () => {
+      // Given
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1', {from: accounts[0]});
+      
+      try {
+        // When
+        await web3IdeasInstance.voteForIdea(0, 1, {from: accounts[0]});
+        assert.equal(true, false, "Failed");
       } catch(error) {
         // Then
         assert.equal(true, true, "Ok");
       }
     });
 
-    it("should edit idea description by idea creator", async () => {
+    it("should not allow to vote for user idea", async () => {
       // Given
-      await web3IdeasInstance.createIdea('title', 'original descHash', {from: accounts[1]});
-
-      // When
-      await web3IdeasInstance.editIdeaTitle(0, 'new descHash', {from: accounts[1]});
-
-      // Then
-      const ideas = await web3IdeasInstance.getAllIdeas.call();
-      assert.equal(ideas[0].title, 'new descHash', "Wrong description");
-    });
-
-    it("should edit idea description by admin", async () => {
-      // Given
-      await web3IdeasInstance.createIdea('title', 'original descHash', {from: accounts[1]});
-
-      // When
-      await web3IdeasInstance.editIdeaTitle(0, 'new descHash', {from: accounts[0]});
-
-      // Then
-      const ideas = await web3IdeasInstance.getAllIdeas.call();
-      assert.equal(ideas[0].title, 'new descHash', "Wrong description");
-    });
-
-    it("should not edit idea description by not owner", async () => {
-      // Given
-      await web3IdeasInstance.createIdea('title', 'original descHash', {from: accounts[1]});
-
-      // When
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1', {from: accounts[1]});
+      
       try {
-        await web3IdeasInstance.editIdeaDescription(0, 'new descHash', {from: accounts[2]});
-        assert.equal(true, false, "Description changed by not owner");
+        // When
+        await web3IdeasInstance.voteForIdea(0, 1, {from: accounts[1]});
+        assert.equal(true, false, "Failed");
       } catch(error) {
         // Then
         assert.equal(true, true, "Ok");
       }
+    });
+
+    it("should show user vote for idea", async () => {
+      // Given
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1', {from: accounts[0]});
+      await web3IdeasInstance.voteForIdea(0, 1, {from: accounts[1]});
+      
+      // When
+      const ideas = await web3IdeasInstance.getAllIdeas.call({from: accounts[1]});
+
+      // Then
+      assert.equal(ideas[0].userVote, 1, "Wrong vote result");
+    });
+
+    it("should show user vote against idea", async () => {
+      // Given
+      await web3IdeasInstance.createIdea('title 1', 'descHash 1', {from: accounts[0]});
+      await web3IdeasInstance.voteForIdea(0, 2, {from: accounts[1]});
+      
+      // When
+      const ideas = await web3IdeasInstance.getAllIdeas.call({from: accounts[1]});
+
+      // Then
+      assert.equal(ideas[0].userVote, 2, "Wrong vote result");
     });
   });
 });

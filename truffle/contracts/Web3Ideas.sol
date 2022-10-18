@@ -32,6 +32,7 @@ contract Web3Ideas is AccessControl {
       string descriptionHash;
       address author;
       uint createdOn;
+      bool canDelete;
     }
 
     struct IdeaDTO {
@@ -42,7 +43,7 @@ contract Web3Ideas is AccessControl {
       uint approvedCount;
       uint rejectedCount;
       VoteResult userVote;
-      bool canChange;
+      bool canDelete;
       bool canVoteForIdea;
       uint createdOn;
       IdeaComment[] comments;
@@ -63,13 +64,18 @@ contract Web3Ideas is AccessControl {
     event CommentAdded(uint id, string descriptionHash);
     event CommentDeleted(uint id);
 
-    modifier onlyCanChangeIdea(uint ideaId) {
-      require(canChangeIdea(ideaId), "Not enough permission to delete this idea");
+    modifier onlyCanDeleteIdea(uint ideaId) {
+      require(canDeleteIdea(ideaId), "Not enough permission to delete this idea");
       _;
     }
 
     modifier onlyCanVoteForIdea(uint ideaId) {
       require(canVoteForIdea(ideaId), "Can't vote for it's own idea");
+      _;
+    }
+
+    modifier onlyCanDeleteComment(uint commentId) {
+      require(canDeleteComment(commentId), "Not enough permission to delete this comment");
       _;
     }
 
@@ -86,22 +92,9 @@ contract Web3Ideas is AccessControl {
       emit NewIdeaCreated(ideasCount);
     }
 
-    function editIdeaTitle(uint ideaId, string calldata newTitle) external onlyCanChangeIdea(ideaId) {
-      Idea storage idea = ideas[ideaId];
-      idea.title = newTitle;
-
-      emit IdeaTitleChanged(ideaId, newTitle);
-    }
-
-    function editIdeaDescription(uint ideaId, string calldata newDescriptionHash) external onlyCanChangeIdea(ideaId) {
-      Idea storage idea = ideas[ideaId];
-      idea.descriptionHash = newDescriptionHash;
-
-      emit IdeaDescriptionChanged(ideaId, newDescriptionHash);
-    }
-
-    function deleteIdea(uint ideaId) external onlyCanChangeIdea(ideaId) {        
+    function deleteIdea(uint ideaId) external onlyCanDeleteIdea(ideaId) {        
       delete ideas[ideaId];
+      --ideasCount;
 
       for (uint voteId = 0; voteId < votingsCount; voteId++) {
         VotedIdea memory votedIdea = votes[voteId];
@@ -113,7 +106,7 @@ contract Web3Ideas is AccessControl {
       emit IdeaDeleted(ideaId);
     }
 
-    function canChangeIdea(uint ideaId) private view returns (bool) {
+    function canDeleteIdea(uint ideaId) private view returns (bool) {
       return ideas[ideaId].author == msg.sender || hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
@@ -141,12 +134,24 @@ contract Web3Ideas is AccessControl {
       return msg.sender != ideas[ideaId].author;
     }
 
+    function canDeleteComment(uint commentId) private view returns (bool) {
+      return comments[commentId].author == msg.sender || hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
+
     function addComment(uint ideaId, string calldata descriptionHash) external {
-      IdeaComment memory comment = IdeaComment(commentsCount, ideaId, descriptionHash, msg.sender, block.timestamp);
+      IdeaComment memory comment = IdeaComment(
+        commentsCount, ideaId, descriptionHash, msg.sender, block.timestamp, false);
       comments[commentsCount] = comment;
       ++commentsCount;
 
       emit CommentAdded(ideaId, descriptionHash);
+    }
+
+    function deleteComment(uint commentId) external onlyCanDeleteComment(commentId) {
+      delete comments[commentId];
+      --commentsCount;
+      
+      emit CommentDeleted(commentId);
     }
 
     function getAllIdeas() external view returns(IdeaDTO[] memory) {
@@ -177,6 +182,7 @@ contract Web3Ideas is AccessControl {
           if (comment.ideaId != idea.id) {
               continue;
           }
+          comment.canDelete = canDeleteComment(comment.id);
           ideaComments[ideaCommentId] = comment;
           ++ideaCommentId;
         }
@@ -189,7 +195,7 @@ contract Web3Ideas is AccessControl {
           approvedCount,
           rejectedCount,
           userVoted,
-          canChangeIdea(idea.id),
+          canDeleteIdea(idea.id),
           canVoteForIdea(idea.id),
           idea.createdOn,
           ideaComments);

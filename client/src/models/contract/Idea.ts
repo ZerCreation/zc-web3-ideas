@@ -10,7 +10,7 @@ export interface Idea {
   approvedCount: number;
   rejectedCount: number;
   userVote: VoteResult;
-  canChange: boolean;
+  canDelete: boolean;
   canVoteForIdea: boolean;
   createdOn: number;
   comments: IdeaComment[];

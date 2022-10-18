@@ -69,6 +69,12 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
         await fetchAllIdeas(contractSigner);
       });
 
+      contractSigner.on("CommentDeleted", async function (...args) {
+        if (isOldEvent(args)) return;
+
+        await fetchAllIdeas(contractSigner);
+      });      
+
       async function fetchAllIdeas(contractSigner: ethers.Contract) {
         const allIdeas = await contractSigner.getAllIdeas();
         const allIdeasDecoded: Idea[] = [];
@@ -143,17 +149,19 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
                   Comments:
                   {!!idea.comments
                     ? <ul>{idea.comments.filter(comment => !!comment.descriptionHash).map((comment, idx) =>
-                      <li key={idx}>
-                        {comment.description}
-                        | {comment.author}
-                        | {new Date(+ethers.utils.formatUnits(comment.createdOn, 0) * 1000).toLocaleString()}
+                      <li key={idx} style={{margin: 10}}>
+                        {new Date(+ethers.utils.formatUnits(comment.createdOn, 0) * 1000).toLocaleString()} ({showCutAddress(comment.author)})
                         <Button
+                          disabled={!comment.canDelete}
                           onClick={() => deleteComment(comment.id)}
+                          style={{marginLeft: 40}}
                           variant='outlined'
                           color='error'
                         >
                           <DeleteIcon />
                         </Button>
+                        <br />
+                        {comment.description}
                       </li>
                     )}</ul>
                     : null
@@ -165,7 +173,7 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
                 <Button variant='outlined' onClick={() => showCommentModal(idea)}><AddIcon /> Add comment</Button>
                 <Button
                   onClick={() => deleteIdea(idea.id, idea.descriptionHash)}
-                  disabled={!idea.canChange}
+                  disabled={!idea.canDelete}
                   variant='outlined'
                   color='error'
                   style={{ marginLeft: 10 }}
@@ -234,7 +242,7 @@ export default function IdeasList({ contractSigner, provider, address, ipfsClien
     }
 
     async function deleteComment(commentId: number) {
-      // sendTransaction(async () => await contractSigner?.deleteComment(commentId));
+      sendTransaction(async () => await contractSigner?.deleteComment(commentId));
     }
   }, [ideas, contractSigner]);
 
